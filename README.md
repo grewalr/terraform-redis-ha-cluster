@@ -1,10 +1,46 @@
-# Google Cloud Redis HA Cluster Terraform Template
+# Google Cloud Redis HA Cluster Terraform Templates
 
-This Terraform template makes it easy to launch a High-Availability Redis cluster to cache application data in memory.
+These Terraform templates launch a High-Availability Redis cluster with auto-healing and monitoring built in. Redis is very useful for caching application data in memory and can also be used as a message broker.
 
-Specifically, this repo provides a template to create a 3-node cluster with Redis Sentinel and Redis Server running on each node. Three Managed Instance Groups are used in order to enable creation of a multi-zonal cluster.
+The core template creates a 3-node cluster with Redis Sentinel and Redis Server running on each node. Three Managed Instance Groups are used in order to enable creation of a multi-zonal cluster.
 
-Redis Sentinel will promote a new master node to accept writes if the current master becomes unresponsive. Each VM will be deleted and replaced by its Managed Instance Group if the TCP healthcheck fails multiple times in a row.
+
+## Description
+
+The template writes an installation script to a Cloud Storage Bucket. The installation script installs Redis Server, Redis Sentinel, and StackDriver Agent. Instance Templates are configured such that any Instance created from the template will download and runs the installation script at startup. Managed Instance Groups use an Instance Template to create cluster member instances and replace each instance that becomes unhealthy.
+
+
+## Failover Characteristics
+
+Systemd will restart Redis if the process is stopped on an individual instance.
+
+Redis Sentinel will promote a new master node to accept writes if the current master becomes unresponsive.
+
+Managed Instance Group runs a TCP health check and will replace any instance that is unresponsive multiple times in a row.
+
+## Monitoring with StackDriver
+
+StackDriver Agent Redis Plugin exports the following metrics:
+- Blocked clients
+- Command count
+- Connected clients
+- Connection count
+- Expired keys
+- Lua memory usage
+- Memory usage
+- PubSub channels
+- PubSub patterns
+- Slave connections
+- Unsaved changes
+- Uptime
+
+It also exports CPU, Disk and Network metrics.
+
+The metrics can be viewed using [StackDriver Metrics Explorer](https://app.google.stackdriver.com/metrics-explorer). Select "GCE VM Instance" as the Resource Type.
+
+Redis metrics are given URIs begin with "agent.googleapis.com/redis/" and can be filtered by cluster using the "cluster_name" metadata label added by this template.
+
+StackDriver can be used to create dashboards or define alerts, and has built-in integration with [PagerDuty](https://app.google.stackdriver.com/settings/accounts/notifications/pagerduty), [Slack](https://app.google.stackdriver.com/settings/accounts/notifications/slack) and [SMS](https://app.google.stackdriver.com/settings/accounts/notifications/sms).
 
 
 ## Usage
@@ -47,15 +83,15 @@ terraform init
 ## File structure
 The project has the following folders and files:
 
-- /config.tf: Creates a Cloud Storage bucket and uploads a startup script
-- /firewall.tf: Creates firewall rules to allow healthcheck, communication within the cluster, and clients on the private network.
-- /main.tf: Creates Instance templates and Managed Instance Groups
-- /network.tf: Creates Static Private IP and TCP Healthcheck
-- /README.md: this file
-- /redis.sh.tpl: Template for startup script that installs and configures Redis
-- /service_account.tf: Creates service account and grants permission to write StackDriver Logging and Metrics
-- /startup.sh.tpl: Startup script that fetches Redis startup script
-- /variables.tf: Variables - Edit this file before running apply.
+- README.md: this file
+- [common/main.tf](common/main.tf): Creates Service Account, Cloud Storage Bucket, Firewall Rules and grants permissions to the Service Account
+- common/variables.tf: Variables for Firewall Rules
+- [healthcheck/main.tf](healthcheck/main.tf): Creates TCP Healthcheck
+- healthcheck/variables.tf: Variables for TCP Healthcheck
+- [template/main.tf](template/main.tf): Creates Instance templates, Managed Instance Groups, Static Private IP, Startup Script
+- [template/redis.sh.tpl](template/redis.sh.tpl): Template for startup script to install and configure Redis Server, Redis Sentinel and StackDriver Agent
+- template/startup.sh.tpl: Startup script that fetches Redis startup script
+- template/variables.tf: Variables - Variables for creating Redis Cluster
 
 
 ## License

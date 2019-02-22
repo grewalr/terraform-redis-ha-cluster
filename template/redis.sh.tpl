@@ -20,6 +20,8 @@ echo never > /sys/kernel/mm/transparent_hugepage/enabled
 echo 'vm.overcommit_memory = 1' >> /etc/sysctl.conf
 sysctl vm.overcommit_memory=1
 
+export DEBIAN_FRONTEND=noninteractive
+
 apt install -y redis-sentinel redis-server
 service redis stop
 service redis-sentinel stop
@@ -122,7 +124,24 @@ cat <<EOF > /etc/logrotate.d/redis
 }
 EOF
 
-sudo service redis restart
-sudo service redis-sentinel restart
+# StackDriver Agent with Redis plugin
+echo 'deb http://packages.cloud.google.com/apt google-cloud-monitoring-stretch main' > /etc/apt/sources.list.d/google-cloud-monitoring.list
+apt update -y
+apt install -y stackdriver-agent libhiredis0.13
+cat <<EOF > /opt/stackdriver/collectd/etc/collectd.d/redis.conf
+LoadPlugin redis
+<Plugin "redis">
+    <Node "mynode">
+        Host "localhost"
+        Port "6379"
+        Password "${pass}"
+        Timeout 2000
+    </Node>
+</Plugin>
+EOF
+service stackdriver-agent restart
+
+service redis restart
+service redis-sentinel restart
 
 exit 0

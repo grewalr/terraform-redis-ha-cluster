@@ -14,20 +14,15 @@
  * limitations under the License.
  */
 
-resource "google_service_account" "redis" {
-  project      = "${var.project}"
-  account_id   = "${var.service_account}"
-  display_name = "${var.service_account}"
-}
+resource "google_compute_health_check" "default" {
+  project             = "${var.project}"
+  name                = "${var.health_check}"
+  timeout_sec         = 2
+  check_interval_sec  = 8
+  healthy_threshold   = 1
+  unhealthy_threshold = 3
 
-resource "google_project_iam_member" "redis_logs" {
-  project = "${var.project}"
-  role    = "roles/logging.logWriter"
-  member  = "serviceAccount:${google_service_account.redis.email}"
-}
-
-resource "google_project_iam_member" "redis_metrics" {
-  project = "${var.project}"
-  role    = "roles/monitoring.metricWriter"
-  member  = "serviceAccount:${google_service_account.redis.email}"
+  tcp_health_check {
+    port = "6379"
+  }
 }
